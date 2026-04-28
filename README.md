@@ -26,6 +26,7 @@ The tool requires a POSIX-compliant environment (Linux) and `gcc`.
     Bash
 
     gcc main.c -o serial-tool
+   ```
 
 Usage
 
@@ -48,19 +49,19 @@ Short	Long	Description
 Examples
 
 Listen to a device at 115200 baud:
-Bash
-
+```bash
 ./serial-tool -d /dev/ttyUSB0 -b 115200 -m receive
+```
 
 Send an AT command with CRLF terminator:
-Bash
-
+```bash
 ./serial-tool -d /dev/ttyUSB0 -m send -T "AT+GMM" -t CRLF
+```
 
 Custom 7E1 configuration with hardware flow control:
-Bash
-
+```bash
 ./serial-tool -d /dev/ttyS0 -b 19200 -D 7 -p E -s 1 -H -m receive
+```
 
 Technical Details
 
