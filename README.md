@@ -21,11 +21,10 @@ The tool requires a POSIX-compliant environment (Linux) and `gcc`.
    ```bash
    git clone [https://github.com/yourusername/serial-tool.git](https://github.com/yourusername/serial-tool.git)
    cd serial-tool
-
-    Compile the source:
-    Bash
-
-    gcc main.c -o serial-tool
+   ```
+   Compile the source:
+   ```bash
+   gcc main.c -o serial-tool
    ```
 
 Usage
