@@ -48,6 +48,7 @@ Arguments
 | `-t`  | `--terminator`  | Line ending: LF, CR, CRLF                                      |
 | `-S`  | `--softcontrol` | Enable software flow control (XON/XOFF)                        |
 | `-H`  | `--hardcontrol` | Enable hardware flow control (RTS/CTS)                         |
+| `-h`  | `--help`        | prints help                                                    |
 
 Examples
 
