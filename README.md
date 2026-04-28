@@ -30,21 +30,25 @@ The tool requires a POSIX-compliant environment (Linux) and `gcc`.
 
 Usage
 
-Basic syntax: ./serial-tool -d [device_path] [options]
+Basic syntax:
+```bash 
+./serial-tool -d [device_path] [options]
+```
 
 Arguments
 
-Short	Long	Description
--d	--device	(Required) Path to the serial device (e.g., /dev/ttyUSB0)
--b	--baudrate	Communication speed (e.g., 9600, 115200)
--D	--databits	Data bits (5, 6, 7, 8)
--p	--parity	Parity bit: N (None), E (Even), O (Odd)
--s	--stopbits	Stop bits (1 or 2)
--m	--mode	Mode of operation: send or receive
--T	--transfer	The string data to be sent
--t	--terminator	Line ending for transfer: LF, CR, CRLF
--S	--softcontrol	Enable software flow control (XON/XOFF)
--H	--hardcontrol	Enable hardware flow control (RTS/CTS)
+| Short | Long            | Description                                                    |
+| ----- | --------------- | -------------------------------------------------------------- |
+| `-d`  | `--device`      | **(Required)** Path to the serial device (e.g. `/dev/ttyUSB0`) |
+| `-b`  | `--baudrate`    | Communication speed (e.g. 9600, 115200)                        |
+| `-D`  | `--databits`    | Data bits (5, 6, 7, 8)                                         |
+| `-p`  | `--parity`      | Parity bit: N (None), E (Even), O (Odd)                        |
+| `-s`  | `--stopbits`    | Stop bits (1 or 2)                                             |
+| `-m`  | `--mode`        | Mode of operation: `send` or `receive`                         |
+| `-T`  | `--transfer`    | String data to be sent                                         |
+| `-t`  | `--terminator`  | Line ending: LF, CR, CRLF                                      |
+| `-S`  | `--softcontrol` | Enable software flow control (XON/XOFF)                        |
+| `-H`  | `--hardcontrol` | Enable hardware flow control (RTS/CTS)                         |
 
 Examples
 
