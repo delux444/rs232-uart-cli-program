@@ -30,7 +30,9 @@ The tool requires a POSIX-compliant environment (Linux) and `gcc`.
 Usage
 
 Basic syntax: ./serial-tool -d [device_path] [options]
+
 Arguments
+
 Short	Long	Description
 -d	--device	(Required) Path to the serial device (e.g., /dev/ttyUSB0)
 -b	--baudrate	Communication speed (e.g., 9600, 115200)
