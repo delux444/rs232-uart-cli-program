@@ -11,10 +11,24 @@ enum mode{
     RECEIVE, SEND, NOACTION
 };
 enum parity{
-    N, E, O, UNKNOWN
+    N, E, O, UNKNOWN //dodatkowy bit - ustawiamy wartosc, aby laczna ilosc jedynek byla parzysta lub nieparzysta
 };
-enum control{
+enum control{ //zeby nadawca nie wysylal danych za szybko wzgledem odbierajacego
     NOCONTROL, SOFTCONTROL, HARDCONTROL
+
+    //soft - IXOn i IXOFF
+    //OFF - gdy odbiorca jest prawie pelny
+    //potem odbiorca wysle on, gdy bedzie miec miejsce
+
+
+    //hard - RTS-CTS
+    //dedykowane fizyczne piny
+    //RTS (Request to Send) lub CTS (Clear to Send)
+    //rts - nadawca chce wyslac
+   //cts - odbiorca jest gotowy, ma wolne miejsce w buforze
+
+   //laczone sa na krzyz
+
 };
 struct device{
     enum mode md;
@@ -25,8 +39,8 @@ struct device{
 struct userinput{
     enum parity par;
     enum control con;
-    speed_t baudrate;
-    tcflag_t databits;
+    speed_t baudrate; //zamiast liczb wpisuje sie stale np. B9600
+    tcflag_t databits; //przechowuje flagi konfiguracyjne terminala - okreslaja liczbe bitow w ramce danych (CS5, CS6, CS7, CS8) - 5 - 8 bitow
     int stopbits;
 };
 
@@ -72,6 +86,7 @@ int main(int argc, char *argv[]){
         return -1;
     }
 
+    //otwieramy plik, read and write, NOCTTY - niezaleznosc od urzadzenia, do ktorego sie podlaczymy
     int fd = open(dev.name, O_RDWR | O_NOCTTY);
     if(fd < 0){
         perror("open failed");
@@ -115,6 +130,10 @@ int main(int argc, char *argv[]){
 /* INPUT VALIDATION */
 int handle_input(int argc, char *argv[], struct device *dev, struct userinput *usr){
 
+    //slownik wszystkich opcji, ktore uzytkownik moze podac: dlugie argumenty od 2 myslnikow
+    //2 arg - czy po nazwie wymagana jest wartosc
+    //3 arg - flaga - gdy = 0 to getopt_long zwroci wartosc z czwartego pola
+    //gdy zamiast zera wskaznik na int, to getopt_long ustawi ten int na wartosc z czwartego pola i zwroci 0
     struct option longopts[] = {
         {"device", required_argument, 0, 'd'},
         {"baudrate", required_argument, 0, 'b'},
@@ -127,18 +146,28 @@ int handle_input(int argc, char *argv[], struct device *dev, struct userinput *u
         {"transfer", required_argument, 0, 'T'},
         {"mode", required_argument, 0, 'm'},
         {"help", no_argument, 0, 'h'},
-        {0, 0, 0, 0}
+        {0, 0, 0, 0} //straznik, ze jest koniec listy
     };
 
     int opt;
     int optidx;
+
+    //wywolemy funkcje, a wynik do opt
+    //gdy wszystkie opcje oblsuzymy opt = -1, koniec petli
+
+    //flagi z : za litera - dodatkowa wartosc do podania
+    //h - bez : - flaga, nie wymaga dodatkowej wartosci
+
+    //longopts - tablica z definicjami dlugich opcji
+    //&optidx - funkcje zapisuje numer indeksu opcji znalezionej w tablicylongopts
     while( (opt = getopt_long(argc, argv, "d:b:D:p:s:S:H:t:T:m:h", longopts, &optidx)) != -1 ){
 
         switch(opt){
 
+            //opttarg - wartosc nadana po opcji/napisie
             case 'd':
                 dev->name = malloc(strlen(optarg) + 1);
-                if(!dev->name) { return -1; }
+                if(!dev->name) { return -1; } //nie zaalokowal pamieci
                 strcpy(dev->name, optarg);
                 break;
 
@@ -180,7 +209,8 @@ int handle_input(int argc, char *argv[], struct device *dev, struct userinput *u
             }
             case 'T':
             {
-                char *tmp = malloc(strlen(optarg) + 1);
+                //tresc wiadomosco, ktora chces wypisac
+                char *tmp = malloc(strlen(optarg) + 1); //plus jeden bo strlen nie zalicza zera na koncu stringa
                 if(!tmp) return -1;
                 strcpy(tmp, optarg);
 
@@ -252,7 +282,7 @@ enum parity parse_parity(const char *str){
     return UNKNOWN;
 }
 char* parse_terminator(const char *str){
-    if(strcmp(str, "LF") == 0) { return strdup("\n"); }
+    if(strcmp(str, "LF") == 0) { return strdup("\n"); } //strdup -string duplicate
     else if(strcmp(str, "CR") == 0) { return strdup("\r"); }
     else if(strcmp(str, "CRLF") == 0) { return strdup("\r\n"); }
 
@@ -271,9 +301,11 @@ void setup_termios(struct termios *term, struct userinput *usr){
 
     cfmakeraw(term);  // ❗ ważne
 
-    cfsetispeed(term, usr->baudrate);
-    cfsetospeed(term, usr->baudrate);
+    //predkosc wejsciowa i wyjsciowa - takie same (jedno urzadzenie, dwa kierunki)
+    cfsetispeed(term, usr->baudrate); //listen
+    cfsetospeed(term, usr->baudrate);//speak
 
+    // liczba bitow danych
     term->c_cflag &= ~CSIZE;
     term->c_cflag |= usr->databits;
 
@@ -300,7 +332,7 @@ void setup_termios(struct termios *term, struct userinput *usr){
     else
         term->c_iflag &= ~(IXON | IXOFF);
 
-    #ifdef CRTSCTS
+    #ifdef CRTSCTS //this is not standar
     if(usr->con == HARDCONTROL)
         term->c_cflag |= CRTSCTS;
     else
@@ -308,9 +340,13 @@ void setup_termios(struct termios *term, struct userinput *usr){
     #endif
 
     term->c_cflag |= (CLOCAL | CREAD);
+    //CREAD - zasilanie dla odbiornika, zebysmy my mogli odbierac dane
+    //CLOCAL - ignorowanie linii DCD - w starych modemach
+
 }
 int write_to_device(int fd, char *data, char *terminator){
 
+    //najpierw wysylamy dane, potem terminator
     if(data){
         if(write_all(fd, data, strlen(data)) < 0) { return -1; }
     }
@@ -334,6 +370,8 @@ int write_all(int fd, const char *buf, size_t len) {
 void listen_device(int fd) {
     char buf[256];
 
+    //fd - deskryptor portu szeregowego
+
     while(!stop){
 
         ssize_t n = read(fd, buf, sizeof(buf));
@@ -341,6 +379,8 @@ void listen_device(int fd) {
         if(n > 0){
             ssize_t written = 0;
             while(written < n){
+
+                //poczatek i liczba znakow jakie zostaly do wyswietlenia
                 ssize_t w = write(STDOUT_FILENO, buf + written, n - written);
                 if(w <= 0){ perror("stdout write failed"); return; }
                 written += w;
@@ -352,6 +392,8 @@ void listen_device(int fd) {
 
 void print_help(const char *prog){
 
+
+    //ANSI escape codes for colors and formatting
     #define C_RESET   "\033[0m"
     #define C_BOLD    "\033[1m"
     #define C_GREEN   "\033[32m"
@@ -449,7 +491,7 @@ void print_userinput(struct userinput *usr){
     printf("%lu\n", (unsigned long)usr->baudrate);
     printf("Databits: ");
 
-    switch(usr->databits){
+    switch(usr->databits){ //predkosci
         case CS5: printf("5\n"); break;
         case CS6: printf("6\n"); break;
         case CS7: printf("7\n"); break;
