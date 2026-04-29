@@ -6,6 +6,9 @@
 #include <string.h>
 #include <signal.h>
 #include <fcntl.h>
+#include <dirent.h>
+
+
 
 enum mode{
     RECEIVE, SEND, NOACTION
@@ -52,6 +55,7 @@ tcflag_t parse_databits(const char *);
 enum parity parse_parity(const char *);
 char* parse_terminator(const char *);
 enum mode parse_mode(const char *);
+void list_serial_devices();
 
 /* TERMIOS CONFIG */
 void setup_termios(struct termios *, struct userinput *);
@@ -80,6 +84,19 @@ int main(int argc, char *argv[]){
     struct userinput usr = {N, NOCONTROL, B9600, CS7, 1};
 
     if(handle_input(argc, argv, &dev, &usr) == -1) { return -1; }
+
+    //verifying if interface exists
+
+    if (access(dev.name, F_OK) == -1) {
+        fprintf(stderr, "Error: Device '%s' does not exist.\n", dev.name);
+        return -1;
+    }
+
+    if (access(dev.name, R_OK | W_OK) == -1) {
+        fprintf(stderr, "Error: You don't have read/write permissions for '%s'.\n", dev.name);
+        fprintf(stderr, "Hint: Try running with 'sudo' or check your user groups.\n");
+        return -1;
+    }
 
     if(!dev.name){
         fprintf(stderr, "Device not specified\n");
@@ -146,6 +163,7 @@ int handle_input(int argc, char *argv[], struct device *dev, struct userinput *u
         {"transfer", required_argument, 0, 'T'},
         {"mode", required_argument, 0, 'm'},
         {"help", no_argument, 0, 'h'},
+        {"list", no_argument, 0, 'l'},
         {0, 0, 0, 0} //straznik, ze jest koniec listy
     };
 
@@ -160,7 +178,7 @@ int handle_input(int argc, char *argv[], struct device *dev, struct userinput *u
 
     //longopts - tablica z definicjami dlugich opcji
     //&optidx - funkcje zapisuje numer indeksu opcji znalezionej w tablicylongopts
-    while( (opt = getopt_long(argc, argv, "d:b:D:p:s:S:H:t:T:m:h", longopts, &optidx)) != -1 ){
+    while( (opt = getopt_long(argc, argv, "d:b:D:p:s:S:H:t:T:m:hl", longopts, &optidx)) != -1 ){
 
         switch(opt){
 
@@ -229,6 +247,10 @@ int handle_input(int argc, char *argv[], struct device *dev, struct userinput *u
             case 'h':
                 print_help(argv[0]);
                 return -1;
+
+            case 'l':
+                list_serial_devices();
+                return -1;  
             default:
                 fprintf(stderr, "Unknown option: %c\n", opt);
                 return -1;
@@ -425,6 +447,9 @@ void print_help(const char *prog){
     printf(C_BOLD C_CYAN "\nMode:\n" C_RESET);
     printf("  -m, --mode <send|recv|listen|none>\n");
 
+    printf(C_BOLD C_CYAN "\nListing:\n" C_RESET);
+    printf("  -l, --list                 List available serial devices in /dev\n");
+
     printf(C_BOLD C_CYAN "\nExamples:\n" C_RESET);
     printf("  %s -d /dev/ttyUSB0 -b 9600 -m listen\n", prog);
     printf("  %s -d /dev/ttyUSB0 -m send -T \"hello\" -t CRLF\n", prog);
@@ -451,6 +476,9 @@ void print_help(const char *prog){
     printf("  - Use 'receive' mode to monitor incoming data\n");
 
     printf("\n");
+
+   
+
 }
 
 /* DEBUG FUNCTIONS */
@@ -519,6 +547,50 @@ const char* control_to_string(enum control c){
         case HARDCONTROL: return "Hardware";
         default: return "Unknown";
     }
+}
+
+
+
+
+
+void list_serial_devices() {
+    DIR *dir;
+    struct dirent *entry;
+
+    printf("Available serial devices in /dev/:\n");
+    dir = opendir("/dev");
+    if (dir == NULL) {
+        perror("Unable to open /dev");
+        return;
+    }
+
+    int found = 0;
+    while ((entry = readdir(dir)) != NULL) {
+        const char *name = entry->d_name;
+
+        // Combined Linux and macOS naming conventions
+        if (strncmp(name, "ttyUSB", 6) == 0 ||   // Linux: USB-Serial adapters
+            strncmp(name, "ttyACM", 6) == 0 ||   // Linux: USB Modems/Arduinos
+            strncmp(name, "ttyS", 4) == 0 ||     // Linux: Hardware Serial ports
+            strncmp(name, "cu.", 3) == 0 ||      // Mac: Call-out devices (Preferred)
+            strncmp(name, "tty.", 4) == 0)       // Mac: Interactive terminal devices
+        {
+            // Filter out common internal Mac noise (Bluetooth/AirPort/Internal Modems)
+            if (strstr(name, "Bluetooth") == NULL && 
+                strstr(name, "Wireless") == NULL && 
+                strstr(name, "Soc") == NULL) 
+            {
+                printf("  /dev/%s\n", name);
+                found = 1;
+            }
+        }
+    }
+
+    if (!found) {
+        printf("  No serial devices found. Check your connection or drivers.\n");
+    }
+
+    closedir(dir);
 }
 
 
